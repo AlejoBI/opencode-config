@@ -114,30 +114,41 @@ if defined NEW_PATH (
 set "PATH=%USERPROFILE%\.opencode\bin;%PATH%"
 
 :: ──────────────────────────────────────────────
-:: 3. Instalar Node.js 22
+:: 3. Instalar Node.js (latest LTS)
 :: ──────────────────────────────────────────────
-echo [3/7] Node.js 22 (para chrome-devtools-mcp)...
+echo [3/7] Node.js (latest LTS)...
 
 if exist "%NODE_DIR%\node.exe" (
-    echo   [OK] Node.js ya instalado en !NODE_DIR!
+    for /f "tokens=*" %%i in ('"%NODE_DIR%\node.exe" --version') do echo   [OK] Node.js %%i ya instalado en !NODE_DIR!
 ) else (
-    echo   Descargando Node.js 22 para Windows...
-    curl -fsSL https://nodejs.org/dist/v22.14.0/node-v22.14.0-win-x64.zip -o "%TEMP%\node.zip"
+    :: Detectar última versión LTS dinámicamente
+    echo   Detectando última versión LTS de Node.js...
+    for /f "delims=" %%i in ('powershell -NoProfile -Command "(Invoke-RestMethod https://nodejs.org/dist/index.json | Where-Object { $_.lts -ne $false } | Select-Object -First 1).version"') do set "LTS_VERSION=%%i"
+    if not defined LTS_VERSION (
+        set "LTS_VERSION=v22.14.0"
+        echo   [WARN] No se pudo detectar version online. Usando !LTS_VERSION! como fallback.
+    ) else (
+        echo   [OK] Ultima LTS detectada: !LTS_VERSION!
+    )
+    set "LTS_FULL=node-!LTS_VERSION!"
+
+    echo   Descargando !LTS_FULL! para Windows...
+    curl -fsSL "https://nodejs.org/dist/!LTS_VERSION!/!LTS_FULL!-win-x64.zip" -o "%TEMP%\node.zip"
 
     if exist "%TEMP%\node.zip" (
         powershell -Command "Expand-Archive -Path '%TEMP%\node.zip' -DestinationPath '%TEMP%\node-install' -Force" >nul
 
         if not exist "!NODE_DIR!" mkdir "!NODE_DIR!"
-        xcopy /E /Y /Q "%TEMP%\node-install\node-v22.14.0-win-x64\*" "!NODE_DIR!\" >nul
+        xcopy /E /Y /Q "%TEMP%\node-install\!LTS_FULL!-win-x64\*" "!NODE_DIR!\" >nul
 
         rmdir /S /Q "%TEMP%\node-install" 2>nul
         del "%TEMP%\node.zip" 2>nul
 
-        echo   [OK] Node.js 22 instalado en !NODE_DIR!
+        echo   [OK] Node.js !LTS_VERSION! instalado en !NODE_DIR!
     ) else (
         echo   [WARN] No se pudo descargar Node.js.
         echo          Descargalo manualmente desde:
-        echo          https://nodejs.org/dist/v22.14.0/node-v22.14.0-win-x64.zip
+        echo          https://nodejs.org/dist/!LTS_VERSION!/!LTS_FULL!-win-x64.zip
         echo          Extrae el contenido en !NODE_DIR!
     )
 )

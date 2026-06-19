@@ -33,7 +33,7 @@
     },
     "fetch": {
       "type": "local",
-      "command": ["npx", "-y", "@modelcontextprotocol/server-fetch"],
+      "command": ["npx", "-y", "mcp-fetch-server"],
       "enabled": true
     }
   }

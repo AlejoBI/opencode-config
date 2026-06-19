@@ -125,17 +125,44 @@ else
 fi
 
 # ──────────────────────────────────────────────
-# 3. Instalar Node.js 22 en ~/.node/
+# 3. Instalar Node.js (latest LTS) en ~/.node/
 # ──────────────────────────────────────────────
-echo -e "${BLUE}[3/7]${NC} Node.js 22 (para chrome-devtools-mcp)..."
+echo -e "${BLUE}[3/7]${NC} Node.js (latest LTS)..."
 
 NODE_DIR="$HOME/.node"
+
+# Detectar última versión LTS dinámicamente
+echo "  Detectando última versión LTS de Node.js..."
+NODE_LATEST=""
+
+if command -v python3 &>/dev/null && command -v curl &>/dev/null; then
+  NODE_LATEST=$(curl -fsSL https://nodejs.org/dist/index.json 2>/dev/null | python3 -c "
+import sys, json
+versions = [v for v in json.load(sys.stdin) if v.get('lts')]
+if versions:
+    print(versions[0]['version'])
+" 2>/dev/null || echo "")
+fi
+
+if [ -z "$NODE_LATEST" ] && command -v curl &>/dev/null; then
+  NODE_LATEST=$(curl -fsSL https://nodejs.org/dist/index.json 2>/dev/null | grep -o '"version":"v[^"]*","lts":"[A-Z][^"]*"' | head -1 | sed 's/.*"version":"\([^"]*\)".*/\1/' 2>/dev/null || echo "")
+fi
+
+if [ -z "$NODE_LATEST" ]; then
+  NODE_LATEST="v22.14.0"
+  echo -e "  ${YELLOW}→ No se pudo detectar versión online. Usando $NODE_LATEST como fallback.${NC}"
+else
+  echo -e "  ${GREEN}✓ Última LTS detectada: $NODE_LATEST${NC}"
+fi
+
+NODE_FULL="node-$NODE_LATEST"
+NODE_DESC="${NODE_LATEST#v}"
 
 install_node() {
   local url="$1"
   local tmp_dir="/tmp/node-install-$$"
 
-  echo "  Descargando Node.js 22..."
+  echo "  Descargando $NODE_FULL..."
   mkdir -p "$tmp_dir"
 
   if command -v curl &>/dev/null; then
@@ -150,7 +177,7 @@ install_node() {
   mkdir -p "$NODE_DIR"
   cp -r "$tmp_dir"/*/* "$NODE_DIR/"
   rm -rf "$tmp_dir"
-  echo -e "  ${GREEN}✓ Node.js $(node --version) instalado en $NODE_DIR${NC}"
+  echo -e "  ${GREEN}✓ Node.js $NODE_LATEST instalado en $NODE_DIR${NC}"
 }
 
 if [ -f "$NODE_DIR/node" ] || [ -f "$NODE_DIR/node.exe" ]; then
@@ -163,15 +190,15 @@ else
   case "$OS" in
     Linux)
       case "$ARCH" in
-        x86_64)  install_node "https://nodejs.org/dist/v22.14.0/node-v22.14.0-linux-x64.tar.xz" ;;
-        aarch64) install_node "https://nodejs.org/dist/v22.14.0/node-v22.14.0-linux-arm64.tar.xz" ;;
+        x86_64)  install_node "https://nodejs.org/dist/$NODE_LATEST/$NODE_FULL-linux-x64.tar.xz" ;;
+        aarch64) install_node "https://nodejs.org/dist/$NODE_LATEST/$NODE_FULL-linux-arm64.tar.xz" ;;
         *)       echo -e "  ${YELLOW}→ Arquitectura no soportada: $ARCH. Instala Node.js 18+ manualmente.${NC}" ;;
       esac
       ;;
     Darwin)
       case "$ARCH" in
-        x86_64)  install_node "https://nodejs.org/dist/v22.14.0/node-v22.14.0-darwin-x64.tar.xz" ;;
-        arm64)   install_node "https://nodejs.org/dist/v22.14.0/node-v22.14.0-darwin-arm64.tar.xz" ;;
+        x86_64)  install_node "https://nodejs.org/dist/$NODE_LATEST/$NODE_FULL-darwin-x64.tar.xz" ;;
+        arm64)   install_node "https://nodejs.org/dist/$NODE_LATEST/$NODE_FULL-darwin-arm64.tar.xz" ;;
         *)       echo -e "  ${YELLOW}→ Arquitectura no soportada: $ARCH. Instala Node.js 18+ manualmente.${NC}" ;;
       esac
       ;;
@@ -325,13 +352,16 @@ echo -e "    4. Lee el README completo: ${YELLOW}cat ~/opencode-config/README.md
 echo ""
 
 # ──────────────────────────────────────────────
-# También configurar esta misma máquina si es el repo local
+# Sincronizar config con la copia local del repo
 # ──────────────────────────────────────────────
-# Si estamos ejecutando desde el repo clonado en el escritorio (Windows),
-# también actualizar esa copia
-REPO_DIR="C:/Users/SF065/Desktop/opencode-config"
+# Si el repo está en otra ubicación además de DOTFILES_DIR,
+# define REPO_DIR abajo apuntando a esa ruta
+# Ejemplo: REPO_DIR="$HOME/Desktop/mi-repo"
+# Por defecto usamos DOTFILES_DIR (donde está este script)
+REPO_DIR="${REPO_DIR:-$DOTFILES_DIR}"
 if [ -d "$REPO_DIR/.git" ]; then
-  cp "$DOTFILES_DIR/opencode/opencode.jsonc" "$REPO_DIR/opencode/"
-  cp "$DOTFILES_DIR/opencode/tui.json" "$REPO_DIR/opencode/"
+  mkdir -p "$REPO_DIR/opencode/commands"
+  cp "$DOTFILES_DIR/opencode/opencode.jsonc" "$REPO_DIR/opencode/opencode.jsonc"
+  cp "$DOTFILES_DIR/opencode/tui.json" "$REPO_DIR/opencode/tui.json"
   cp "$DOTFILES_DIR/opencode/commands/"*.md "$REPO_DIR/opencode/commands/" 2>/dev/null || true
 fi
